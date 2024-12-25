@@ -1,0 +1,153 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动端商品详情页面的数据模拟与处理</title>
+</head>
+
+<body>
+    <script>
+        window.onload = function () {
+            // 当页面加载完成后执行该函数
+
+            // 模拟服务端返回的数据
+            const ServiceResponse = {
+                "status": 200, // 请求成功的状态码
+                "data": {
+                    "storeInfo": {
+                        "integral": 500, // 商品的积分价格
+                        "price": 1999, // 商品的现金价格
+                        "stock": 100, // 商品的库存数量
+                        "image": "/images/product.jpg", // 商品图片的路径
+                        "sales": 50, // 商品销量
+                        "browse": 500, // 商品的浏览次数
+                        "storeInfo": "iPhone 16 Pro Max" // 商品的描述信息
+                    },
+                    "reply": [
+                        { "user": "Alice", "comment": "Great product!" }, // 用户 Alice 的评论
+                        { "user": "Bob", "comment": "Worth the price!" } // 用户 Bob 的评论
+                    ],
+                    "replyCount": 2, // 评论的数量
+                    "productAttr": [
+                        {
+                            "attrName": "内存容量", // 属性名称
+                            "attrValueArr": ["8GB+256GB", "12GB+512GB"] // 该属性的可选值
+                        },
+                        {
+                            "attrName": "颜色", // 属性名称
+                            "attrValueArr": ["黑色", "白色"] // 该属性的可选值
+                        }
+                    ],
+                    "productValue": {
+                        "1001": {
+                            "unique": "1001", // SKU 的唯一标识符
+                            "sku": "8GB+256GB,黑色", // SKU 对应的属性组合
+                            "price": 1999, // SKU 对应的价格
+                            "integral": 500, // SKU 对应的积分价格
+                            "stock": 50 // SKU 对应的库存数量
+                        },
+                        "1002": {
+                            "unique": "1002", // SKU 的唯一标识符
+                            "sku": "12GB+512GB,白色", // SKU 对应的属性组合
+                            "price": 2999, // SKU 对应的价格
+                            "integral": 700, // SKU 对应的积分价格
+                            "stock": 50 // SKU 对应的库存数量
+                        }
+                    }
+                }
+            };
+
+            /*
+              处理服务端返回的数据
+            */
+            const integral = "false"; // 标识是否允许用积分兑换商品，'true'为允许，'false'为不允许
+            let product = null; // 用于存储商品信息的变量
+            let reply = null; // 用于存储评论信息的变量
+            let replyCount = null; // 用于存储评论数量的变量
+            let sku = {
+                "price": 0, // 商品价格（根据条件会是现金价格或积分价格）
+                "stock_num": 0, // 商品的库存数量
+                "tree": [], // 商品的属性列表（以树形结构表示）
+                "list": [] // SKU 的具体信息列表
+            };
+            let goods = {
+                "picture": "" // 商品的图片信息
+            };
+
+            /**
+             * 过滤并处理服务器返回的数据
+             * @param {Object} data - 从服务器获取的商品详情数据
+             * author: CoderJoon
+             * date: 2024-09-21-05:02
+             * description: 目的通过过滤服务端返回的数据，提取出商品的基本信息、评论信息、评论数量、商品属性、商品图片、SKU 列表等数据，并将其处理成前端可以使用的格式
+             */
+            const filterData = function (data) {
+                // 提取商品的基本信息
+                product = data.storeInfo;
+                // 提取商品的评论信息
+                reply = data.reply;
+                // 提取评论数量
+                replyCount = data.replyCount;
+                // 设置库存数量
+                sku.stock_num = data.storeInfo.stock;
+                // 设置商品图片路径
+                goods.picture = data.storeInfo.image;
+
+                // 判断是否为积分商品，设置商品价格
+                if (integral == 'true') {
+                    sku.price = data.storeInfo.integral; // 如果积分标志为'true'，使用积分价格
+                } else {
+                    sku.price = data.storeInfo.price; // 否则使用现金价格
+                }
+
+
+
+                // 遍历商品的属性列表，构建属性树
+                data.productAttr.forEach((item) => {
+                    const treeMap = { v: [] }; // 定义一个树形映射对象
+                    treeMap.k = item.attrName; // 设置属性名称
+                    treeMap.k_s = item.attrName; // 设置属性的标识符
+
+                    // 遍历属性值数组，为每个值生成一个对象，并加入到属性树中
+                    item.attrValueArr.forEach((att) => {
+                        const v = { id: att, name: att }; // 属性值对象，包含 id 和名称
+                        treeMap.v.push(v); // 添加到属性列表
+                    });
+                    sku.tree.push(treeMap); // 将构建的树形结构添加到 SKU 的树形属性中
+                });
+
+                // 遍历每个 SKU，提取其具体信息
+                for (const key in data.productValue) {
+                    const list = {}; // 存储 SKU 的详细信息
+                    list.id = data.productValue[key].unique; // SKU 的唯一标识符
+                    const sk = data.productValue[key].sku.split(','); // 将 SKU 的组合属性分割为数组
+
+                    // 遍历 SKU 的属性树，填充 SKU 属性
+                    sku.tree.forEach((r, i) => {
+                        list[r.k_s] = sk[i]; // 根据索引匹配属性值
+                    });
+
+                    // 将价格、积分、库存等具体信息添加到 SKU 列表
+                    list.price = data.productValue[key].price * 100; // 转换价格为整数（如分为单位）
+                    list.integral = data.productValue[key].integral; // SKU 对应的积分
+                    list.stock_num = data.productValue[key].stock; // SKU 对应的库存
+
+                    sku.list.push(list); // 将处理后的 SKU 数据添加到 SKU 列表中
+                }
+            };
+
+            // 调用过滤函数，处理服务端返回的数据
+            filterData(ServiceResponse.data);
+
+            // 输出处理后的商品信息到控制台
+            console.log("商品信息数据,", product);
+            console.log("评论信息数据,", reply);
+            console.log("评论数量数据,", replyCount);
+            console.log("商品属性数据,", sku);
+            console.log("商品图片数据,", goods);
+        };
+    </script>
+</body>
+
+</html>
